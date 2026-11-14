@@ -1,0 +1,63 @@
+name: bio-loaders-utf8-bom
+
+on:
+  push:
+    branches:
+      - ci/bio-loaders-utf8-bom
+
+permissions:
+  contents: read
+
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+      - run: |
+          python -m pip install --upgrade pip
+          pip install .[quality]
+      - name: make quality
+        run: make quality
+
+  test:
+    needs: quality
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        python: ["3.10", "3.14"]
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 3
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip uv
+          uv pip install --system -e ".[tests]"
+          uv pip list | grep -i -E "^(biopython|pyarrow|datasets|fsspec) "
+      - name: Baseline (fix reverted in src, new tests kept)
+        continue-on-error: true
+        run: |
+          git checkout HEAD~2 -- src/datasets/packaged_modules/fasta src/datasets/packaged_modules/fastq src/datasets/packaged_modules/genbank
+          git diff --cached --stat
+          python -m pytest -rfE -p no:cacheprovider tests/packaged_modules/test_fasta.py tests/packaged_modules/test_fastq.py tests/packaged_modules/test_genbank.py -k utf8_bom -v
+      - name: Restore fix
+        run: |
+          git checkout HEAD -- src
+          git status --short
+      - name: Fixed - new BOM tests
+        run: python -m pytest -rfE -p no:cacheprovider tests/packaged_modules -k utf8_bom -v
+      - name: Fixed - fasta, fastq, genbank test files
+        run: python -m pytest -rfE -p no:cacheprovider tests/packaged_modules/test_fasta.py tests/packaged_modules/test_fastq.py tests/packaged_modules/test_genbank.py -q
+      - name: Fixed - tests/packaged_modules
+        run: python -m pytest -rfE -p no:cacheprovider -n 2 --dist loadfile tests/packaged_modules -q
