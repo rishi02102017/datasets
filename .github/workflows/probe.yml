@@ -1,0 +1,24 @@
+name: probe
+on:
+  push:
+    branches: ['ci/probe-*']
+  workflow_dispatch:
+jobs:
+  probe:
+    strategy:
+      fail-fast: false
+      matrix:
+        src: [release, main]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: install
+        run: |
+          if [ "${{ matrix.src }}" = release ]; then pip install -q datasets pandas polars; else pip install -q "git+https://github.com/huggingface/datasets" pandas polars; fi
+          python -c "import datasets,pyarrow;print('datasets',datasets.__version__,'pyarrow',pyarrow.__version__)"
+      - name: probe
+        run: |
+          for f in probe*.py; do echo "=== $f"; python $f || true; done
