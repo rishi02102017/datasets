@@ -17,7 +17,7 @@ jobs:
           python-version: '3.11'
       - name: install
         run: |
-          if [ "${{ matrix.src }}" = release ]; then pip install -q datasets pandas polars; else pip install -q "git+https://github.com/huggingface/datasets" pandas polars; fi
+          if [ "${{ matrix.src }}" = release ]; then pip install -q datasets pandas polars pillow; else pip install -q "git+https://github.com/huggingface/datasets" pandas polars pillow; fi
           python -c "import datasets,pyarrow;print('datasets',datasets.__version__,'pyarrow',pyarrow.__version__)"
       - name: probe
         run: |
